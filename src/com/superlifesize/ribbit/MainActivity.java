@@ -1,11 +1,21 @@
 package com.superlifesize.ribbit;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 import android.app.ActionBar;
 import android.app.AlertDialog;
 import android.app.FragmentTransaction;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.view.ViewPager;
@@ -13,6 +23,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.Window;
+import android.widget.Toast;
 
 import com.parse.ParseAnalytics;
 import com.parse.ParseUser;
@@ -27,23 +38,116 @@ public class MainActivity extends FragmentActivity implements
 	public static final int PICK_PHOTO_REQUEST = 2;
 	public static final int PICK_VIDEO_REQUEST = 3;
 	
+	public static final int MEDIA_TYPE_IMAGE = 4;
+	public static final int MEDIA_TYPE_VIDEO = 5;
+	
+	public static final int FILE_SIZE_LIMIT = 1024*1024*10; //10MB
+	
+	protected Uri mMediaUri;
+	
 	protected DialogInterface.OnClickListener mDialogListener = new DialogInterface.OnClickListener() {
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
 			switch(which) {
 				case 0: //Take Picture
 					Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-					startActivityForResult(takePhotoIntent, TAKE_PHOTO_REQUEST);
+					mMediaUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
+					if(mMediaUri == null) {
+						//display an error
+						Toast.makeText(MainActivity.this, R.string.error_external_storage, Toast.LENGTH_LONG).show();
+					}
+					else {
+						takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mMediaUri);
+						startActivityForResult(takePhotoIntent, TAKE_PHOTO_REQUEST);
+					}
 					break;
 				case 1: //Take Video
+					Intent videoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+					mMediaUri = getOutputMediaFileUri(MEDIA_TYPE_VIDEO);
+					if(mMediaUri == null) {
+						//display an error
+						Toast.makeText(MainActivity.this, R.string.error_external_storage, Toast.LENGTH_LONG).show();
+					}
+					else {
+						videoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mMediaUri);
+						videoIntent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, 10);
+						videoIntent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 0); //0 = Lowest Quality
+						startActivityForResult(videoIntent, TAKE_VIDEO_REQUEST);
+					}
 					break;
 				case 2: //Choose Picture
+					Intent choosePhotoIntent = new Intent(Intent.ACTION_GET_CONTENT);
+					choosePhotoIntent.setType("img/*");
+					startActivityForResult(choosePhotoIntent, PICK_PHOTO_REQUEST);
 					break;
 				case 3: //Choose Video
+					Intent chooseVideoIntent = new Intent(Intent.ACTION_GET_CONTENT);
+					chooseVideoIntent.setType("video/*");
+					Toast.makeText(MainActivity.this, R.string.video_file_size_warning, Toast.LENGTH_LONG).show();
+					startActivityForResult(chooseVideoIntent, PICK_VIDEO_REQUEST);
 					break;
 			}
 			
 		}
+
+		private Uri getOutputMediaFileUri(int mediaType) {
+		    // To be safe, you should check that the SDCard is mounted
+		    // using Environment.getExternalStorageState() before doing this.
+			if (isExternalStorageAvailable()) {
+				//get URI
+				
+				//1. Get external storage directory
+				String appName = MainActivity.this.getString(R.string.app_name);
+				File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), 
+						appName);
+				
+				//2. Create subdirectory
+				if(! mediaStorageDir.exists()) {
+					if(! mediaStorageDir.mkdirs()) {
+						Log.e(TAG, "Failed to create directory");
+						return null;
+					}
+				}
+				
+				//3. Create file name
+				//4. Create file
+				File mediaFile;
+				Date now = new Date();
+				String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(now); 
+				
+				String path = mediaStorageDir.getPath() + File.separator;
+				if(mediaType == MEDIA_TYPE_IMAGE) {
+					mediaFile = new File(path + "IMG_" + timestamp + ".jpg");
+				}
+				else if(mediaType == MEDIA_TYPE_VIDEO) {
+					mediaFile = new File(path + "VID_" + timestamp + ".mp4");
+				}
+				else {
+					return null;
+				}
+				
+				Log.d(TAG, "File " + Uri.fromFile(mediaFile));
+				
+				//5. Return URI
+				return Uri.fromFile(mediaFile);
+			}
+			else {
+				return null;
+			}
+		}
+		
+		private boolean isExternalStorageAvailable() {
+			String state = Environment.getExternalStorageState();
+			
+			if (state.equals(Environment.MEDIA_MOUNTED)) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+		
+		
 	};
 
 	/**
@@ -113,6 +217,63 @@ public class MainActivity extends FragmentActivity implements
 		}
 	}
 
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		
+		if(resultCode == RESULT_OK) {
+			//For choosing existing photo or video
+			if(requestCode == PICK_PHOTO_REQUEST || requestCode == PICK_VIDEO_REQUEST) {
+				if(data == null) {
+					Toast.makeText(this, getString(R.string.general_error), Toast.LENGTH_LONG).show();
+				}
+				else {
+					mMediaUri = data.getData();
+				}
+				
+				Log.i(TAG, "Media URL " + mMediaUri);
+				if(requestCode == PICK_VIDEO_REQUEST) {
+					//Make sure the video is less than 10MB
+					int fileSize = 0;
+					
+					InputStream inputStream = null;
+					try {
+						 inputStream = getContentResolver().openInputStream(mMediaUri);
+						fileSize = inputStream.available();
+					}
+					catch(FileNotFoundException e) {
+						Toast.makeText(this, R.string.error_opening_file, Toast.LENGTH_LONG).show();
+						return;
+					}
+					catch(IOException e) {
+						Toast.makeText(this, R.string.error_opening_file, Toast.LENGTH_LONG).show();
+						return;
+					}
+					finally {
+						try {
+							inputStream.close();
+						} catch (IOException e) {/*Intentionally Empty*/}
+					}
+					
+					if(fileSize >= FILE_SIZE_LIMIT) {
+						Toast.makeText(this, R.string.file_size_too_large_error, Toast.LENGTH_LONG).show();
+						return;
+					}
+				}
+				
+			}
+			else {
+				//Capture new photo or video
+				Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+				mediaScanIntent.setData(mMediaUri);
+				sendBroadcast(mediaScanIntent);
+			}
+		}
+		else if(resultCode != RESULT_CANCELED) {
+			Toast.makeText(this, R.string.general_error, Toast.LENGTH_LONG).show();
+		}
+	}
+	
 	private void navigateToLogin() {
 		Intent intent = new Intent (this, LoginActivity.class);
 		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
