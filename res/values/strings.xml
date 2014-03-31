@@ -27,14 +27,25 @@
     <string name="menu_camera_label">Camera</string>
     <string name="error_external_storage">There was an issue accessing your device\'s external storage.</string>
     <string name="general_error">Sorry, there was an error!</string>
+
     <string-array name="camera_choices">
-        <item >Take Picture</item>
-        <item >Take Video</item>
-        <item >Choose Picture</item>
-        <item >Choose Video</item>
+        <item>Take Picture</item>
+        <item>Take Video</item>
+        <item>Choose Picture</item>
+        <item>Choose Video</item>
     </string-array>
-        <string name="video_file_size_warning">Selected video must be less than 10MB.</string>
-        <string name="error_opening_file">There was a problem with the selected file.</string>
-        <string name="file_size_too_large_error">The selected file is too large. Select a new file</string>
+
+    <string name="video_file_size_warning">Selected video must be less than 10MB.</string>
+    <string name="error_opening_file">There was a problem with the selected file.</string>
+    <string name="file_size_too_large_error">The selected file is too large. Select a new file</string>
+    <string name="title_activity_recipients">Choose Recipients</string>
+    <string name="empty_recipients_list_msg">Choose some friends first!</string>
+    <string name="menu_send_label">Send</string>
+    <string name="send_message_error">There was an error adding this file. Please choose another file</string>
+    <string name="select_file_error_message">There was an error adding this file. Please choose another file</string>
+    <string name="select_file_error_message_title">Whoops!</string>
+    <string name="success_message">Message Sent!</string>
+    <string name="error_sending_message">There was an error sending your message.  Please try again.</string>
+    <string name="title_activity_view_image">Ribbit</string>
 
 </resources>
